@@ -4,7 +4,7 @@ Aplikacja Streamlit do przewidywania czasu ukończenia półmaratonu na podstawi
 
 ---
 
-## Wymagania
+## 📦 Wymagania
 
 - Python 3.8+
 - Plik `requirements.txt` z zależnościami
@@ -70,7 +70,7 @@ Aplikacja Streamlit do przewidywania czasu ukończenia półmaratonu na podstawi
 
 ---
 
-## Kontakt
+## 📬 Kontakt
 
 Masz pytania lub sugestie? Odezwij się!
 
