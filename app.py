@@ -159,7 +159,7 @@ else:
     st.title("🏃‍♂️ Szacowanie czasu półmaratonu")
 
     st.text_area(
-        "Wpisz dane o sobie: (wiek, płeć i tempo na 5 km)",
+        "Wpisz dane o sobie: (wiek, płeć i czas na 5 km)",
         key="user_input",
         placeholder="Jestem mężczyzną, mam 24 lat i biegam 5km w 26:13"
     )
