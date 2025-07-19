@@ -24,7 +24,7 @@ Aplikacja Streamlit do przewidywania czasu ukończenia półmaratonu na podstawi
    ```bash
    python -m venv venv
    source venv/bin/activate    # Linux/Mac
-   venv\Scriptsctivate       # Windows
+   venv\Scripts\activate       # Windows
    ```
 
 3. **Zainstaluj zależności:**
