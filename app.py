@@ -9,6 +9,8 @@ from langfuse import Langfuse
 from langfuse.openai import OpenAI
 from dotenv import load_dotenv
 
+st.set_page_config(page_title="AI Półmaraton", layout="centered", page_icon="🧠")
+
 # ------------------------------
 # Konfiguracja środowiska i modeli
 # ------------------------------
@@ -68,83 +70,87 @@ def convert_time_to_seconds(time_str):
 def calculate():
     user_input = st.session_state.user_input
 
-    if not user_input.strip():
-        st.warning("Wprowadź dane w polu tekstowym")
-        return
+    with st.spinner("⏳ Analizuję opis..."):
+        if not user_input.strip():
+            st.warning("Wprowadź dane w polu tekstowym")
+            return
 
-    trace = langfuse.trace(
-        name="extract_user_data",
-        user_id="user_" + str(uuid.uuid4())
-    )
-    span = trace.span(
-        name="llm_parse",
-        input=user_input
-    )
-
-    prompt_template = (
-        "Na podstawie poniższego tekstu wyodrębnij dane użytkownika: wiek (int), płeć (str: 'mężczyzna' lub 'kobieta'), "
-        "tempo_5km (format mm:ss lub m:ss lub hh:mm:ss). Zwróć dane w formacie JSON.\n\n"
-        "Przykład: {\"wiek\": 29, \"płeć\": \"mężczyzna\", \"tempo_5km\": \"25:30\"}\n\n"
-        f"Tekst:\n{user_input}"
-    )
-
-    try:
-        response = openai.chat.completions.create(
-            messages=[{"role": "user", "content": prompt_template}],
-            model="gpt-4o"
+        trace = langfuse.trace(
+            name="extract_user_data",
+            user_id="user_" + str(uuid.uuid4())
         )
-        
-        result = response.choices[0].message.content
-
-        generation = span.generation(
-            name="extract_runner_json",
-            input=user_input,
-            output=result,
-            metadata={"prompt_template": prompt_template},
-            model="gpt-4o"
+        span = trace.span(
+            name="llm_parse",
+            input=user_input
         )
-        span.end()
 
-        data = extract_json(result)
+        prompt_template = (
+            "Na podstawie poniższego tekstu wyodrębnij dane użytkownika: wiek (int), płeć (str: 'mężczyzna' lub 'kobieta'), "
+            "czas_5km (format mm:ss lub m:ss lub hh:mm:ss). Zwróć dane w formacie JSON.\n\n"
+            "Przykład: {\"wiek\": 29, \"płeć\": \"mężczyzna\", \"czas_5km\": \"25:30\"}\n\n"
+            f"Tekst:\n{user_input}"
+        )
 
-        if not data:
-            st.error("❌ Nie udało się sparsować odpowiedzi modelu.")
-            st.code(result)
-            return
+        try:
+            response = openai.chat.completions.create(
+                messages=[{"role": "user", "content": prompt_template}],
+                model="gpt-4o"
+            )
+            
+            result = response.choices[0].message.content
 
-        brak_danych = []
-        if not isinstance(data.get("wiek"), int):
-            brak_danych.append("wiek")
-        if data.get("płeć") not in ["mężczyzna", "kobieta"]:
-            brak_danych.append("płeć")
-        if not data.get("tempo_5km"):
-            brak_danych.append("tempo_5km")
+            generation = span.generation(
+                name="extract_runner_json",
+                input=user_input,
+                output=result,
+                metadata={"prompt_template": prompt_template},
+                model="gpt-4o"
+            )
+            span.end()
 
-        if brak_danych:
-            st.error(f"Brakuje danych: {', '.join(brak_danych)}")
-            return
+            data = extract_json(result)
 
-        tempo_5km_total_sec = convert_time_to_seconds(data["tempo_5km"])
-        if tempo_5km_total_sec is None:
-            st.error("Nieprawidłowy format czasu.")
-            return
+            if not data:
+                st.error(f"❌ {result}")
+                return
 
-        tempo_sec = tempo_5km_total_sec / 5
-        df = pd.DataFrame([{
-            "wiek": data["wiek"],
-            "płeć_encoded": 1 if data["płeć"] == "mężczyzna" else 0,
-            "tempo_sec": tempo_sec
-        }])
+            brak_danych = []
+            if not isinstance(data.get("wiek"), int):
+                brak_danych.append("wiek")
+            if data.get("płeć") not in ["mężczyzna", "kobieta"]:
+                brak_danych.append("płeć")
+            if not data.get("czas_5km"):
+                brak_danych.append("czas_5km")
 
-        prediction = predict_model(model, data=df)
-        czas = round(prediction["prediction_label"].values[0], 2)
-        hours = int(czas // 3600)
-        minutes = int((czas % 3600) // 60)
-        seconds = int(czas % 60)
-        st.success(f"⏱️ Szacowany czas półmaratonu: **{hours}h {minutes}m {seconds}s**")
+            if brak_danych:
+                st.error(f"Brakuje danych: {', '.join(brak_danych)}")
+                return
+            
+            else:
+                st.toast("✅ Wykryto dane: **wiek + płeć + czas 5 km**")
 
-    except Exception as e:
-        st.error("Błąd podczas zapytania do LLM.")
+            czas_5km_total_sec = convert_time_to_seconds(data["czas_5km"])
+            if czas_5km_total_sec is None:
+                st.error("Nieprawidłowy format czasu.")
+                return
+
+            tempo_sec = czas_5km_total_sec / 5
+            df = pd.DataFrame([{
+                "wiek": data["wiek"],
+                "płeć_encoded": 1 if data["płeć"] == "mężczyzna" else 0,
+                "tempo_sec": tempo_sec
+            }])
+
+            prediction = predict_model(model, data=df)
+            czas = round(prediction["prediction_label"].values[0], 2)
+            hours = int(czas // 3600)
+            minutes = int((czas % 3600) // 60)
+            seconds = int(czas % 60)
+            formatted_time = f"{hours:02}:{minutes:02}:{seconds:02}"
+            st.success(f"⏱️ Przewidywany czas: **{formatted_time}**")
+
+        except Exception as e:
+            st.error("Wystąpił błąd predykcji.")
 
 # ------------------------------
 # UI i interakcje
@@ -152,17 +158,27 @@ def calculate():
 if not st.session_state.api_key:
     st.text_input("🔑 Klucz OpenAI API", type="password", key="input_api_key")
     st.button("Zatwierdź", on_click=save_api_key)
+    st.info("Wpisz swój klucz OpenAI API, aby korzystać z aplikacji.")
 else:
     langfuse = Langfuse()
     openai = OpenAI()
 
-    st.title("🏃‍♂️ Szacowanie czasu półmaratonu")
+    with st.container():
+        st.markdown("""
+            <h1 style='text-align: center; font-size: 42px; color: #f9fafb;'>A I 🏃‍♂️ P Ó Ł M A R A T O N </h1>
+            <h1 style='text-align: center; font-size: 36px; color: #f9fafb;'>Zaplanuj swój półmaraton</h1>
+            <hr style='border: 1px solid gray;'/>
+        """, unsafe_allow_html=True
+        )
+
+    st.markdown("### 💬 Powiedz mi coś o sobie i swoich wynikach")
 
     st.text_area(
-        "Wpisz dane o sobie: (wiek, płeć i czas na 5 km)",
-        key="user_input",
-        placeholder="Jestem mężczyzną, mam 24 lat i biegam 5km w 26:13"
+        "Wpisz wiek, płeć, jeśli masz jakieś rekordy podziel się z nami (np. 5 km w 36 minut)",
+        key="user_input"
     )
+
+    st.markdown("<hr style='border: 1px solid #444;'>", unsafe_allow_html=True)
 
     col1, col2, col3, col4, col5, col6 = st.columns(6)
 
