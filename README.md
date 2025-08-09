@@ -2,6 +2,8 @@
 # 🧠 AI Półmaraton
 Aplikacja Streamlit do przewidywania czasu ukończenia półmaratonu na podstawie wieku, płci i czasu na 5 km. Wykorzystuje modele ML oraz integrację z OpenAI i Langfuse.
 
+> Możesz uruchomić aplikację lokalnie lub na [Digital Ocean](https://maraton-app-6lcl2.ondigitalocean.app/).
+
 ---
 
 ## 📦 Wymagania
